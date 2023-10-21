@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.18;
 
-import {Test, console} from "forge-std/Test.sol";
+import {Test, console2} from "../lib/forge-std/src/Test.sol";
 import {PasswordStore} from "../src/PasswordStore.sol";
 import {DeployPasswordStore} from "../script/DeployPasswordStore.s.sol";
 
@@ -10,24 +10,47 @@ contract PasswordStoreTest is Test {
     DeployPasswordStore public deployer;
     address public owner;
 
+    address public nonOwner = makeAddr("nonOwner");
+
+    event SetPasswordOwner(address indexed passwordOwner);
+
     function setUp() public {
         deployer = new DeployPasswordStore();
         passwordStore = deployer.run();
         owner = msg.sender;
     }
 
-    function test_owner_can_set_password() public {
+    function testOwnerCanSetPasswordEmitsOwnerAndEncryptsPassword() public {
+        // Arrange
+        vm.startPrank(owner);
+        string memory expectedPassword = "myNewPassword";
+
+        // Act
+        vm.expectEmit();
+        emit SetPasswordOwner(owner);
+        passwordStore.setPassword(expectedPassword);
+        
+        // console2.log(passwordStore.getEncodedPassword());
+        // console2.log(keccak256(abi.encodePacked(expectedPassword)));
+
+        // Assert
+        assertEq(passwordStore.getEncodedPassword() , keccak256(abi.encodePacked(expectedPassword)));
+    }
+
+    function testOnlyOwnerCanGetPassword() public {
+        // Arrange
         vm.startPrank(owner);
         string memory expectedPassword = "myNewPassword";
         passwordStore.setPassword(expectedPassword);
-        string memory actualPassword = passwordStore.getPassword();
-        assertEq(actualPassword, expectedPassword);
-    }
+        vm.stopPrank();
 
-    function test_non_owner_reading_password_reverts() public {
-        vm.startPrank(address(1));
+        vm.startPrank(nonOwner);    
+        // Act
 
         vm.expectRevert(PasswordStore.PasswordStore__NotOwner.selector);
-        passwordStore.getPassword();
+        (bool isValid) = passwordStore.getPassword("A new Day");
+
+        // Assert
+        assert(isValid == false);
     }
 }

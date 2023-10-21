@@ -9,11 +9,12 @@ pragma solidity 0.8.18;
  */
 contract PasswordStore {
     error PasswordStore__NotOwner();
+    error PasswordStore__CannotSetPassword();
 
     address private s_owner;
-    string private s_password;
+    bytes32 private s_password;
 
-    event SetNetPassword();
+    event SetPasswordOwner(address indexed passwordOwner);
 
     constructor() {
         s_owner = msg.sender;
@@ -24,18 +25,26 @@ contract PasswordStore {
      * @param newPassword The new password to set.
      */
     function setPassword(string memory newPassword) external {
-        s_password = newPassword;
-        emit SetNetPassword();
+        if (msg.sender != s_owner) revert PasswordStore__CannotSetPassword();
+        s_password = keccak256(abi.encodePacked(newPassword));
+        emit SetPasswordOwner(msg.sender);
     }
 
     /*
      * @notice This allows only the owner to retrieve the password.
      * @param newPassword The new password to set.
+     * The getPassword Function returns a bool which indicates if the password set is true
      */
-    function getPassword() external view returns (string memory) {
+    function getPassword(string memory password) external view returns (bool isValid) {
         if (msg.sender != s_owner) {
             revert PasswordStore__NotOwner();
         }
+        return keccak256(abi.encodePacked(password)) == s_password;
+    }
+
+    // Getter Functions
+
+    function getEncodedPassword() external view returns(bytes32){
         return s_password;
     }
 }
